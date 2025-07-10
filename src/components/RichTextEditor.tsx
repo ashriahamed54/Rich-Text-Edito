@@ -11,18 +11,61 @@ const RichTextEditor: React.FC = () => {
   const { content, fontFamily } = useAppSelector((state) => state.editor);
   const editorRef = useRef<HTMLDivElement>(null);
 
+  // Custom undo/redo stacks for table operations
+  const tableUndoStack = useRef<string[]>([]);
+  const tableRedoStack = useRef<string[]>([]);
+  const lastTableEdit = useRef<boolean>(false);
+
+  const saveTableUndoState = () => {
+    if (editorRef.current) {
+      tableUndoStack.current.push(editorRef.current.innerHTML);
+      // Clear redo stack on new action
+      tableRedoStack.current = [];
+      lastTableEdit.current = true;
+    }
+  };
+
+  const restoreTableUndoState = () => {
+    if (tableUndoStack.current.length > 0 && editorRef.current) {
+      const prev = tableUndoStack.current.pop();
+      if (prev !== undefined) {
+        tableRedoStack.current.push(editorRef.current.innerHTML);
+        editorRef.current.innerHTML = prev;
+        handleContentChange();
+      }
+    }
+  };
+
+  const restoreTableRedoState = () => {
+    if (tableRedoStack.current.length > 0 && editorRef.current) {
+      const next = tableRedoStack.current.pop();
+      if (next !== undefined) {
+        tableUndoStack.current.push(editorRef.current.innerHTML);
+        editorRef.current.innerHTML = next;
+        handleContentChange();
+      }
+    }
+  };
+
   const executeCommand = useCallback((command: string, value?: string) => {
     if (editorRef.current) {
       editorRef.current.focus();
     }
-
-    document.execCommand(command, false, value);
-    
-    if (editorRef.current) {
-      const sanitizedContent = DOMPurify.sanitize(editorRef.current.innerHTML);
-      dispatch(setContent(sanitizedContent));
+    if (command === 'undo') {
+      if (lastTableEdit.current && tableUndoStack.current.length > 0) {
+        restoreTableUndoState();
+        lastTableEdit.current = false;
+        return;
+      }
+    } else if (command === 'redo') {
+      if (tableRedoStack.current.length > 0) {
+        restoreTableRedoState();
+        return;
+      }
     }
-  }, [dispatch]);
+    document.execCommand(command, false, value);
+    // Do NOT update Redux here!
+  }, []);
 
   const handleContentChange = useCallback(() => {
     if (editorRef.current) {
@@ -257,6 +300,7 @@ const RichTextEditor: React.FC = () => {
   };
 
   const addTableRow = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
     // Find the row to clone
     const row = cell.closest('tr');
     if (row) {
@@ -277,6 +321,7 @@ const RichTextEditor: React.FC = () => {
   };
 
   const addTableColumn = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
     // Find the column index
     const cellIndex = Array.from(cell.parentNode!.children).indexOf(cell);
     const rows = table.querySelectorAll('tr');
@@ -298,6 +343,7 @@ const RichTextEditor: React.FC = () => {
   };
 
   const deleteTableRow = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
     const rowIndex = Array.from(cell.parentNode!.children).indexOf(cell);
     const rows = table.querySelectorAll('tr');
     if (rows.length > 0) {
@@ -308,6 +354,7 @@ const RichTextEditor: React.FC = () => {
   };
 
   const deleteTableColumn = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
     const cellIndex = Array.from(cell.parentNode!.children).indexOf(cell);
     const rows = table.querySelectorAll('tr');
     if (rows.length > 0 && rows[0].children.length > 1) {
@@ -319,6 +366,42 @@ const RichTextEditor: React.FC = () => {
       ensureAllCellsEditable();
       handleContentChange();
     }
+  };
+
+  const addTableRowAbove = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
+    const row = cell.closest('tr');
+    if (row) {
+      const isHeader = row.querySelectorAll('th').length > 0;
+      const cellTag = isHeader ? 'th' : 'td';
+      const numCells = row.children.length;
+      const newRow = document.createElement('tr');
+      for (let i = 0; i < numCells; i++) {
+        const newCell = document.createElement(cellTag);
+        newCell.setAttribute('contenteditable', 'true');
+        newCell.textContent = isHeader ? `Header` : `Cell`;
+        newRow.appendChild(newCell);
+      }
+      row.parentNode?.insertBefore(newRow, row);
+      ensureAllCellsEditable();
+      handleContentChange();
+    }
+  };
+
+  const addTableColumnLeft = (table: HTMLElement, cell: HTMLElement) => {
+    saveTableUndoState();
+    const cellIndex = Array.from(cell.parentNode!.children).indexOf(cell);
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+      const isHeader = row.querySelectorAll('th').length > 0;
+      const cellTag = isHeader ? 'th' : 'td';
+      const newCell = document.createElement(cellTag);
+      newCell.setAttribute('contenteditable', 'true');
+      newCell.textContent = isHeader ? `Header` : `Cell`;
+      row.insertBefore(newCell, row.children[cellIndex]);
+    });
+    ensureAllCellsEditable();
+    handleContentChange();
   };
 
   // Enhanced context menu for table cells
@@ -367,7 +450,25 @@ const RichTextEditor: React.FC = () => {
       menu.remove();
     };
 
+    const addRowAboveButton = document.createElement('button');
+    addRowAboveButton.textContent = 'Add Row Above';
+    addRowAboveButton.className = 'block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm';
+    addRowAboveButton.onclick = () => {
+      addTableRowAbove(table, cell);
+      menu.remove();
+    };
+
+    const addColLeftButton = document.createElement('button');
+    addColLeftButton.textContent = 'Add Column Left';
+    addColLeftButton.className = 'block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm';
+    addColLeftButton.onclick = () => {
+      addTableColumnLeft(table, cell);
+      menu.remove();
+    };
+
+    menu.appendChild(addRowAboveButton);
     menu.appendChild(addRowButton);
+    menu.appendChild(addColLeftButton);
     menu.appendChild(addColButton);
     menu.appendChild(deleteRowButton);
     menu.appendChild(deleteColButton);
@@ -426,12 +527,11 @@ const RichTextEditor: React.FC = () => {
 
   return (
     <div className="w-full max-w-5xl mx-auto border border-gray-300 rounded-lg bg-white shadow-sm">
-      <EditorToolbar onCommand={executeCommand} />
+      <EditorToolbar onCommand={executeCommand} onBeforeInsertContent={saveTableUndoState} />
       <div
         ref={editorRef}
         contentEditable
         className="rich-text-editor p-4 sm:p-6 min-h-96 max-h-screen overflow-y-auto outline-none text-gray-800 leading-relaxed focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-        style={{ fontFamily }}
         onInput={handleContentChange}
         onKeyDown={handleKeyDown}
         suppressContentEditableWarning={true}

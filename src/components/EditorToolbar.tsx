@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Undo, Redo, Link, Upload, Code, Table, FileText } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../hooks';
 import { setFontFamily } from '../store/editorSlice';
@@ -15,17 +15,48 @@ import DOMPurify from 'dompurify';
 
 interface EditorToolbarProps {
   onCommand: (command: string, value?: string) => void;
+  onBeforeInsertContent?: () => void;
 }
 
-const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
+const OPEN_SOURCE_FONTS = [
+  { name: 'Inter', value: 'Inter, Arial, sans-serif' },
+  { name: 'Roboto', value: 'Roboto, Arial, sans-serif' },
+  { name: 'Open Sans', value: 'Open Sans, Arial, sans-serif' },
+  { name: 'Lato', value: 'Lato, Arial, sans-serif' },
+  { name: 'Montserrat', value: 'Montserrat, Arial, sans-serif' },
+  { name: 'Source Sans Pro', value: 'Source Sans Pro, Arial, sans-serif' },
+  { name: 'Merriweather', value: 'Merriweather, serif' },
+  { name: 'Fira Sans', value: 'Fira Sans, Arial, sans-serif' },
+  { name: 'Nunito', value: 'Nunito, Arial, sans-serif' },
+  { name: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+];
+
+const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsertContent }) => {
   const dispatch = useAppDispatch();
   const { fontFamily } = useAppSelector((state) => state.editor);
+  // Track the last user-selected font
+  const [currentFont, setCurrentFont] = useState(fontFamily);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showTableDialog, setShowTableDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const linkSelectionRef = useRef<Range | null>(null);
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
+
+  useEffect(() => {
+    const updateActiveFormats = () => {
+      setActiveFormats({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+      });
+    };
+    document.addEventListener('selectionchange', updateActiveFormats);
+    return () => {
+      document.removeEventListener('selectionchange', updateActiveFormats);
+    };
+  }, []);
 
   const handleHeading = (level: string) => {
     const selection = window.getSelection();
@@ -50,15 +81,47 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
     onCommand('fontSize', size);
   };
 
+  // Helper to get the font-family of the current selection
+  const getSelectionFontFamily = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+    let node = selection.anchorNode as HTMLElement | null;
+    if (node && node.nodeType === 3) node = node.parentElement;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      if (style.fontFamily) return style.fontFamily.replace(/['"]/g, '');
+      node = node.parentElement;
+    }
+    return null;
+  };
+
+  // Remove selectionchange effect entirely
+
+  // Handle font change from dropdown
   const handleFontFamily = (font: string) => {
     const selection = window.getSelection();
-    if (selection && selection.toString()) {
-      // Apply font to selected text only
-      onCommand('fontName', font);
+    const editorElement = document.querySelector('.rich-text-editor') as HTMLElement;
+    if (
+      selection &&
+      selection.rangeCount > 0 &&
+      !selection.isCollapsed &&
+      editorElement &&
+      editorElement.contains(selection.anchorNode)
+    ) {
+      const range = selection.getRangeAt(0);
+      const span = document.createElement('span');
+      span.style.fontFamily = font;
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      selection.removeAllRanges();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      newRange.collapse(false);
+      selection.addRange(newRange);
     } else {
-      // Set default font for new text
       dispatch(setFontFamily(font));
     }
+    setCurrentFont(font); // Only update here!
   };
 
   const handlePreviewToggle = () => {
@@ -202,18 +265,15 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
             </select>
 
             <select
-              value={fontFamily}
+              value={currentFont}
               onChange={(e) => handleFontFamily(e.target.value)}
               className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[100px] sm:min-w-[130px]"
             >
-              <option value="Arial">Arial</option>
-              <option value="Times New Roman">Times New Roman</option>
-              <option value="Courier New">Courier New</option>
-              <option value="Georgia">Georgia</option>
-              <option value="Verdana">Verdana</option>
-              <option value="Helvetica">Helvetica</option>
-              <option value="Tahoma">Tahoma</option>
-              <option value="Trebuchet MS">Trebuchet MS</option>
+              {OPEN_SOURCE_FONTS.map((font) => (
+                <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                  {font.name}
+                </option>
+              ))}
             </select>
 
             <select
@@ -233,7 +293,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
 
           {/* Center Section - Format Tools */}
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-            <FormatButtons onCommand={onCommand} />
+            <FormatButtons onCommand={onCommand} activeFormats={activeFormats} />
             
             <div className="h-5 w-px bg-gray-300 hidden sm:block" />
             
@@ -333,6 +393,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
         isOpen={showTableDialog}
         onClose={() => setShowTableDialog(false)}
         onInsert={(tableData) => {
+          if (onBeforeInsertContent) onBeforeInsertContent();
           console.log('Table data received:', tableData);
           
           let tableHtml = '<table style="border-collapse: collapse; width: 100%; margin: 15px 0; font-size: 14px;">';
@@ -365,6 +426,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand }) => {
         isOpen={showTemplateDialog}
         onClose={() => setShowTemplateDialog(false)}
         onInsert={(templateContent) => {
+          if (onBeforeInsertContent) onBeforeInsertContent();
           console.log('Template content received:', templateContent);
           insertAtCursor(templateContent);
         }}
