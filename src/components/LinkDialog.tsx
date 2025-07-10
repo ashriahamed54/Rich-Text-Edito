@@ -97,19 +97,7 @@ const LinkDialog: React.FC<LinkDialogProps> = ({ isOpen, onClose, onInsert }) =>
             />
           </div>
 
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title (Tooltip)
-            </label>
-            <input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Optional tooltip text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          {/* Removed Title (Tooltip) input field */}
 
           <div className="flex items-center gap-2">
             <input
@@ -121,7 +109,9 @@ const LinkDialog: React.FC<LinkDialogProps> = ({ isOpen, onClose, onInsert }) =>
             />
             <label htmlFor="newTab" className="text-sm text-gray-700 flex items-center gap-1">
               Open in new tab
-              <ExternalLink size={14} className="text-gray-500" />
+                <span style={{ display: 'inline-flex' }}>
+                  <ExternalLink size={14} className="text-gray-500" />
+                </span>
             </label>
           </div>
 
