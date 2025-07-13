@@ -247,139 +247,125 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsert
     <>
       <div className="bg-white border-b border-gray-300 px-2 sm:px-4 py-3 shadow-sm">
         {/* First Row - Main formatting tools */}
-        <div className="flex flex-wrap items-center justify-between w-full gap-2 sm:gap-4 mb-3">
-          {/* Left Section - Headings and Font */}
-          <div className="flex items-center gap-1 sm:gap-3 flex-wrap">
-            <select
-              onChange={(e) => handleHeading(e.target.value)}
-              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[90px] sm:min-w-[110px]"
-              defaultValue=""
-            >
-              <option value="">Normal</option>
-              <option value="1">Heading 1</option>
-              <option value="2">Heading 2</option>
-              <option value="3">Heading 3</option>
-              <option value="4">Heading 4</option>
-              <option value="5">Heading 5</option>
-              <option value="6">Heading 6</option>
-            </select>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+          {/* Font Tools */}
+          <select
+            onChange={(e) => handleHeading(e.target.value)}
+            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[90px] sm:min-w-[110px] bg-gray-50"
+            defaultValue=""
+          >
+            <option value="">Normal</option>
+            <option value="1">Heading 1</option>
+            <option value="2">Heading 2</option>
+            <option value="3">Heading 3</option>
+            <option value="4">Heading 4</option>
+            <option value="5">Heading 5</option>
+            <option value="6">Heading 6</option>
+          </select>
 
-            <select
-              value={currentFont}
-              onChange={(e) => handleFontFamily(e.target.value)}
-              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[100px] sm:min-w-[130px]"
-            >
-              {OPEN_SOURCE_FONTS.map((font) => (
-                <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                  {font.name}
-                </option>
-              ))}
-            </select>
+          <select
+            value={currentFont}
+            onChange={(e) => handleFontFamily(e.target.value)}
+            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[100px] sm:min-w-[130px] bg-gray-50"
+          >
+            {OPEN_SOURCE_FONTS.map((font) => (
+              <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                {font.name}
+              </option>
+            ))}
+          </select>
 
-            <select
-              onChange={(e) => handleFontSize(e.target.value)}
-              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[60px] sm:min-w-[70px]"
-              defaultValue="3"
-            >
-              <option value="1">8pt</option>
-              <option value="2">10pt</option>
-              <option value="3">12pt</option>
-              <option value="4">14pt</option>
-              <option value="5">18pt</option>
-              <option value="6">24pt</option>
-              <option value="7">36pt</option>
-            </select>
-          </div>
+          <select
+            onChange={(e) => handleFontSize(e.target.value)}
+            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[60px] sm:min-w-[70px] bg-gray-50"
+            defaultValue="3"
+          >
+            <option value="1">8pt</option>
+            <option value="2">10pt</option>
+            <option value="3">12pt</option>
+            <option value="4">14pt</option>
+            <option value="5">18pt</option>
+            <option value="6">24pt</option>
+            <option value="7">36pt</option>
+          </select>
 
-          {/* Center Section - Format Tools */}
-          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          {/* Formatting Tools */}
+          <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
             <FormatButtons onCommand={onCommand} activeFormats={activeFormats} />
-            
-            <div className="h-5 w-px bg-gray-300 hidden sm:block" />
-            
             <ColorTools onCommand={onCommand} />
-            
-            <div className="h-5 w-px bg-gray-300 hidden sm:block" />
-            
             <ListButtons onCommand={onCommand} />
-          </div>
+          </span>
 
-          {/* Right Section - Actions */}
-          <div className="flex items-center gap-1 sm:gap-3 flex-wrap">
-            <button
-              onClick={handleShowLinkDialog}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Insert Link"
-              type="button"
-            >
-              <Link size={14} className="text-gray-700" />
-            </button>
+          {/* Action Tools */}
+          <button
+            onClick={handleShowLinkDialog}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Insert Link"
+            type="button"
+          >
+            <Link size={14} className="text-gray-700" />
+          </button>
 
-            <button
-              onClick={() => setShowTableDialog(true)}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Insert Table"
-              type="button"
-            >
-              <Table size={14} className="text-gray-700" />
-            </button>
+          <button
+            onClick={() => setShowTableDialog(true)}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Insert Table"
+            type="button"
+          >
+            <Table size={14} className="text-gray-700" />
+          </button>
 
-            <button
-              onClick={() => setShowTemplateDialog(true)}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Insert Template"
-              type="button"
-            >
-              <FileText size={14} className="text-gray-700" />
-            </button>
+          <button
+            onClick={() => setShowTemplateDialog(true)}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Insert Template"
+            type="button"
+          >
+            <FileText size={14} className="text-gray-700" />
+          </button>
 
-            <button
-              onClick={handlePreviewToggle}
-              className={`h-8 w-8 flex items-center justify-center rounded transition-colors border border-transparent hover:border-gray-300 ${
-                showPreview ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-              }`}
-              title="Toggle HTML Preview"
-              type="button"
-            >
-              <Code size={14} />
-            </button>
+          <button
+            onClick={handlePreviewToggle}
+            className={`h-8 w-8 flex items-center justify-center rounded transition-colors border border-transparent hover:border-gray-300 bg-gray-50 ${
+              showPreview ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+            }`}
+            title="Toggle HTML Preview"
+            type="button"
+          >
+            <Code size={14} />
+          </button>
 
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Import Document"
-              type="button"
-            >
-              <Upload size={14} className="text-gray-700" />
-            </button>
-          </div>
-        </div>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Import Document"
+            type="button"
+          >
+            <Upload size={14} className="text-gray-700" />
+          </button>
 
-        {/* Second Row - Alignment and Undo/Redo */}
-        <div className="flex items-center justify-between w-full gap-2 sm:gap-4 flex-wrap">
-          <div className="flex items-center gap-1 sm:gap-3">
-            <button
-              onClick={() => onCommand('undo')}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Undo (Ctrl+Z)"
-              type="button"
-            >
-              <Undo size={14} className="text-gray-700" />
-            </button>
+          {/* Undo/Redo/Alignment Tools */}
+          <button
+            onClick={() => onCommand('undo')}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Undo (Ctrl+Z)"
+            type="button"
+          >
+            <Undo size={14} className="text-gray-700" />
+          </button>
 
-            <button
-              onClick={() => onCommand('redo')}
-              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300"
-              title="Redo (Ctrl+Y)"
-              type="button"
-            >
-              <Redo size={14} className="text-gray-700" />
-            </button>
+          <button
+            onClick={() => onCommand('redo')}
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+            title="Redo (Ctrl+Y)"
+            type="button"
+          >
+            <Redo size={14} className="text-gray-700" />
+          </button>
 
-            <div className="h-5 w-px bg-gray-300 hidden sm:block" />
-
+          <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
             <AlignmentButtons onCommand={onCommand} />
-          </div>
+          </span>
         </div>
       </div>
 

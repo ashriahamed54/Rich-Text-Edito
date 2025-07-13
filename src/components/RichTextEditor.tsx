@@ -532,6 +532,7 @@ const RichTextEditor: React.FC = () => {
         ref={editorRef}
         contentEditable
         className="rich-text-editor p-4 sm:p-6 min-h-96 max-h-screen overflow-y-auto outline-none text-gray-800 leading-relaxed focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+        style={{ fontFamily }}
         onInput={handleContentChange}
         onKeyDown={handleKeyDown}
         suppressContentEditableWarning={true}
