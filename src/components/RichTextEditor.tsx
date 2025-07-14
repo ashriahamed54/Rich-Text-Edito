@@ -1,15 +1,15 @@
 
-import React, { useRef, useCallback, useEffect } from 'react';
-import { useAppSelector } from '../hooks/useAppSelector';
-import { useAppDispatch } from '../hooks/useAppDispatch';
-import { setContent } from '../store/editorSlice';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import EditorToolbar from './EditorToolbar';
 import DOMPurify from 'dompurify';
+import { useEditorContent } from '../context/EditorContentContext';
 
 const RichTextEditor: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { content, fontFamily } = useAppSelector((state) => state.editor);
+  const { content, setContent, fontFamily } = useEditorContent();
   const editorRef = useRef<HTMLDivElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCodePreview, setShowCodePreview] = useState(false);
+  const [codeValue, setCodeValue] = useState('');
 
   // Custom undo/redo stacks for table operations
   const tableUndoStack = useRef<string[]>([]);
@@ -70,9 +70,9 @@ const RichTextEditor: React.FC = () => {
   const handleContentChange = useCallback(() => {
     if (editorRef.current) {
       const sanitizedContent = DOMPurify.sanitize(editorRef.current.innerHTML);
-      dispatch(setContent(sanitizedContent));
+      setContent(sanitizedContent);
     }
-  }, [dispatch]);
+  }, [setContent]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -525,19 +525,115 @@ const RichTextEditor: React.FC = () => {
     };
   }, [content]);
 
+  // Handle paste event to sanitize HTML before inserting
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData || (window as any).clipboardData;
+    let html = clipboardData.getData('text/html');
+    let text = clipboardData.getData('text/plain');
+    let content = html || text;
+    if (!content) return;
+    const sanitized = DOMPurify.sanitize(content);
+    // Insert sanitized HTML at cursor
+    if (editorRef.current) {
+      editorRef.current.focus();
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        // Create a temporary div to parse the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = sanitized;
+        const fragment = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+          fragment.appendChild(tempDiv.firstChild);
+        }
+        range.insertNode(fragment);
+        // Move cursor to end of inserted content
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // If no selection, append to end
+        editorRef.current.innerHTML += sanitized;
+      }
+      // Trigger content change event
+      handleContentChange();
+    }
+  }, [handleContentChange]);
+
+  // Submit handler
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/submit-html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: content }),
+      });
+      if (!response.ok) throw new Error('Failed to submit');
+      alert('Content submitted successfully!');
+    } catch (err) {
+      alert('Error submitting content.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Listen for code preview toggle from toolbar
+  const handleToggleCodePreview = useCallback(() => {
+    if (!showCodePreview) {
+      // Going into code preview: sync textarea with current HTML
+      setCodeValue(content);
+      setShowCodePreview(true);
+    } else {
+      // Going back to WYSIWYG: sanitize and update editor
+      const sanitized = DOMPurify.sanitize(codeValue);
+      setContent(sanitized);
+      setShowCodePreview(false);
+    }
+  }, [showCodePreview, content, codeValue, setContent]);
+
+  useEffect(() => {
+    if (!showCodePreview && editorRef.current) {
+      // When exiting code preview, update the editor's DOM with the latest content
+      const sanitizedContent = DOMPurify.sanitize(content);
+      editorRef.current.innerHTML = sanitizedContent;
+    }
+  }, [showCodePreview, content]);
+
   return (
-    <div className="w-full max-w-5xl mx-auto border border-gray-300 rounded-lg bg-white shadow-sm">
-      <EditorToolbar onCommand={executeCommand} onBeforeInsertContent={saveTableUndoState} />
-      <div
-        ref={editorRef}
-        contentEditable
-        className="rich-text-editor p-4 sm:p-6 min-h-96 max-h-screen overflow-y-auto outline-none text-gray-800 leading-relaxed focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-        style={{ fontFamily }}
-        onInput={handleContentChange}
-        onKeyDown={handleKeyDown}
-        suppressContentEditableWarning={true}
-      />
-    </div>
+    <>
+      <div className="w-full max-w-5xl mx-auto border border-gray-300 rounded-lg bg-white shadow-sm">
+        <EditorToolbar
+          onCommand={executeCommand}
+          onBeforeInsertContent={saveTableUndoState}
+          onToggleCodePreview={handleToggleCodePreview}
+          codePreviewActive={showCodePreview}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+        />
+        {showCodePreview ? (
+          <textarea
+            className="w-full min-h-96 max-h-screen p-4 sm:p-6 border border-gray-300 rounded bg-gray-50 font-mono text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset resize-vertical"
+            value={codeValue}
+            onChange={e => setCodeValue(e.target.value)}
+          />
+        ) : (
+          <div
+            ref={editorRef}
+            contentEditable
+            className="rich-text-editor p-4 sm:p-6 min-h-96 max-h-screen overflow-y-auto outline-none text-gray-800 leading-relaxed focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+            style={{ fontFamily }}
+            onInput={handleContentChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            suppressContentEditableWarning={true}
+          />
+        )}
+      </div>
+      {/* Removed the old submit button below the editor */}
+    </>
   );
 };
 

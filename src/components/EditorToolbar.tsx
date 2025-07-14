@@ -1,8 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Undo, Redo, Link, Upload, Code, Table, FileText } from 'lucide-react';
-import { useAppSelector, useAppDispatch } from '../hooks';
-import { setFontFamily } from '../store/editorSlice';
+import { useEditorContent } from '../context/EditorContentContext';
 import FormatButtons from './toolbar/FormatButtons';
 import AlignmentButtons from './toolbar/AlignmentButtons';
 import ListButtons from './toolbar/ListButtons';
@@ -16,6 +15,10 @@ import DOMPurify from 'dompurify';
 interface EditorToolbarProps {
   onCommand: (command: string, value?: string) => void;
   onBeforeInsertContent?: () => void;
+  onToggleCodePreview?: () => void;
+  codePreviewActive?: boolean;
+  onSubmit?: () => void;
+  isSubmitting?: boolean;
 }
 
 const OPEN_SOURCE_FONTS = [
@@ -31,9 +34,8 @@ const OPEN_SOURCE_FONTS = [
   { name: 'Arial', value: 'Arial, Helvetica, sans-serif' },
 ];
 
-const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsertContent }) => {
-  const dispatch = useAppDispatch();
-  const { fontFamily } = useAppSelector((state) => state.editor);
+const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsertContent, onToggleCodePreview, codePreviewActive, onSubmit, isSubmitting }) => {
+  const { fontFamily, setFontFamily } = useEditorContent();
   // Track the last user-selected font
   const [currentFont, setCurrentFont] = useState(fontFamily);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -95,8 +97,6 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsert
     return null;
   };
 
-  // Remove selectionchange effect entirely
-
   // Handle font change from dropdown
   const handleFontFamily = (font: string) => {
     const selection = window.getSelection();
@@ -119,7 +119,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsert
       newRange.collapse(false);
       selection.addRange(newRange);
     } else {
-      dispatch(setFontFamily(font));
+      setFontFamily(font);
     }
     setCurrentFont(font); // Only update here!
   };
@@ -247,125 +247,141 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ onCommand, onBeforeInsert
     <>
       <div className="bg-white border-b border-gray-300 px-2 sm:px-4 py-3 shadow-sm">
         {/* First Row - Main formatting tools */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
-          {/* Font Tools */}
-          <select
-            onChange={(e) => handleHeading(e.target.value)}
-            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[90px] sm:min-w-[110px] bg-gray-50"
-            defaultValue=""
-          >
-            <option value="">Normal</option>
-            <option value="1">Heading 1</option>
-            <option value="2">Heading 2</option>
-            <option value="3">Heading 3</option>
-            <option value="4">Heading 4</option>
-            <option value="5">Heading 5</option>
-            <option value="6">Heading 6</option>
-          </select>
+        <div className="flex w-full items-center gap-2 sm:gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Font Tools */}
+            <select
+              onChange={(e) => handleHeading(e.target.value)}
+              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[90px] sm:min-w-[110px] bg-gray-50"
+              defaultValue=""
+            >
+              <option value="">Normal</option>
+              <option value="1">Heading 1</option>
+              <option value="2">Heading 2</option>
+              <option value="3">Heading 3</option>
+              <option value="4">Heading 4</option>
+              <option value="5">Heading 5</option>
+              <option value="6">Heading 6</option>
+            </select>
 
-          <select
-            value={currentFont}
-            onChange={(e) => handleFontFamily(e.target.value)}
-            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[100px] sm:min-w-[130px] bg-gray-50"
-          >
-            {OPEN_SOURCE_FONTS.map((font) => (
-              <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                {font.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={currentFont}
+              onChange={(e) => handleFontFamily(e.target.value)}
+              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[100px] sm:min-w-[130px] bg-gray-50"
+            >
+              {OPEN_SOURCE_FONTS.map((font) => (
+                <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                  {font.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            onChange={(e) => handleFontSize(e.target.value)}
-            className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[60px] sm:min-w-[70px] bg-gray-50"
-            defaultValue="3"
-          >
-            <option value="1">8pt</option>
-            <option value="2">10pt</option>
-            <option value="3">12pt</option>
-            <option value="4">14pt</option>
-            <option value="5">18pt</option>
-            <option value="6">24pt</option>
-            <option value="7">36pt</option>
-          </select>
+            <select
+              onChange={(e) => handleFontSize(e.target.value)}
+              className="h-8 px-2 sm:px-3 text-xs sm:text-sm border border-gray-300 rounded bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[60px] sm:min-w-[70px] bg-gray-50"
+              defaultValue="3"
+            >
+              <option value="1">8pt</option>
+              <option value="2">10pt</option>
+              <option value="3">12pt</option>
+              <option value="4">14pt</option>
+              <option value="5">18pt</option>
+              <option value="6">24pt</option>
+              <option value="7">36pt</option>
+            </select>
 
-          {/* Formatting Tools */}
-          <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
-            <FormatButtons onCommand={onCommand} activeFormats={activeFormats} />
-            <ColorTools onCommand={onCommand} />
-            <ListButtons onCommand={onCommand} />
-          </span>
+            {/* Formatting Tools */}
+            <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
+              <FormatButtons onCommand={onCommand} activeFormats={activeFormats} />
+              <ColorTools onCommand={onCommand} />
+              <ListButtons onCommand={onCommand} />
+            </span>
 
-          {/* Action Tools */}
-          <button
-            onClick={handleShowLinkDialog}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Insert Link"
-            type="button"
-          >
-            <Link size={14} className="text-gray-700" />
-          </button>
+            {/* Action Tools */}
+            <button
+              onClick={handleShowLinkDialog}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Insert Link"
+              type="button"
+            >
+              <Link size={14} className="text-gray-700" />
+            </button>
 
-          <button
-            onClick={() => setShowTableDialog(true)}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Insert Table"
-            type="button"
-          >
-            <Table size={14} className="text-gray-700" />
-          </button>
+            <button
+              onClick={() => setShowTableDialog(true)}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Insert Table"
+              type="button"
+            >
+              <Table size={14} className="text-gray-700" />
+            </button>
 
-          <button
-            onClick={() => setShowTemplateDialog(true)}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Insert Template"
-            type="button"
-          >
-            <FileText size={14} className="text-gray-700" />
-          </button>
+            <button
+              onClick={() => setShowTemplateDialog(true)}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Insert Template"
+              type="button"
+            >
+              <FileText size={14} className="text-gray-700" />
+            </button>
 
-          <button
-            onClick={handlePreviewToggle}
-            className={`h-8 w-8 flex items-center justify-center rounded transition-colors border border-transparent hover:border-gray-300 bg-gray-50 ${
-              showPreview ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-            }`}
-            title="Toggle HTML Preview"
-            type="button"
-          >
-            <Code size={14} />
-          </button>
+            <button
+              onClick={onToggleCodePreview}
+              className={`h-8 w-8 flex items-center justify-center rounded transition-colors border border-transparent hover:border-gray-300 bg-gray-50 ${
+                codePreviewActive ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+              }`}
+              title={codePreviewActive ? 'Exit Code Preview' : 'Show Code Preview'}
+              type="button"
+            >
+              <Code size={14} />
+            </button>
 
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Import Document"
-            type="button"
-          >
-            <Upload size={14} className="text-gray-700" />
-          </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Import Document"
+              type="button"
+            >
+              <Upload size={14} className="text-gray-700" />
+            </button>
 
-          {/* Undo/Redo/Alignment Tools */}
-          <button
-            onClick={() => onCommand('undo')}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Undo (Ctrl+Z)"
-            type="button"
-          >
-            <Undo size={14} className="text-gray-700" />
-          </button>
+            {/* Undo/Redo/Alignment Tools */}
+            <button
+              onClick={() => onCommand('undo')}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Undo (Ctrl+Z)"
+              type="button"
+            >
+              <Undo size={14} className="text-gray-700" />
+            </button>
 
-          <button
-            onClick={() => onCommand('redo')}
-            className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
-            title="Redo (Ctrl+Y)"
-            type="button"
-          >
-            <Redo size={14} className="text-gray-700" />
-          </button>
+            <button
+              onClick={() => onCommand('redo')}
+              className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-300 bg-gray-50"
+              title="Redo (Ctrl+Y)"
+              type="button"
+            >
+              <Redo size={14} className="text-gray-700" />
+            </button>
 
-          <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
-            <AlignmentButtons onCommand={onCommand} />
-          </span>
+            <span className="bg-gray-50 rounded-md px-2 py-1 flex items-center gap-1 sm:gap-2">
+              <AlignmentButtons onCommand={onCommand} />
+            </span>
+
+            {/* Submit Tool Button */}
+            {onSubmit && (
+              <button
+                onClick={onSubmit}
+                disabled={isSubmitting}
+                className="h-8 px-3 flex items-center justify-center rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 text-sm font-medium border border-transparent hover:border-blue-700 ml-1"
+                title="Submit Content"
+                type="button"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </button>
+            )}
+          </div>
+          <div className="flex-1" />
         </div>
       </div>
 
